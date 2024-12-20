@@ -1,23 +1,26 @@
-# Start your image with a node base image
+# Use a specific Node version to ensure consistency across builds
 FROM node:18-alpine
 
-# The /app directory should act as the main application directory
+# Set the working directory
 WORKDIR /app
 
-# Copy the app package and package-lock.json file
+# Copy package.json and package-lock.json first to leverage Docker cache
 COPY package*.json ./
 
-# Copy local directories to the current local directory of our docker image (/app)
+# Install dependencies (this layer will be cached unless package.json or package-lock.json changes)
+RUN npm install \
+    && npm install -g serve
+
+# Copy the rest of the application files after dependencies are installed
 COPY ./src ./src
 COPY ./public ./public
 
-# Install node packages, install serve, build the app, and remove dependencies at the end
-RUN npm install \
-    && npm install -g serve \
-    && npm run build \
-    && rm -fr node_modules
+# Build the app and remove unnecessary files (this will only run if source code changes)
+RUN npm run build \
+    && rm -rf node_modules
 
+# Expose the port that the app will be served on
 EXPOSE 3000
 
-# Start the app using serve command
+# Start the app using the 'serve' command to serve the built files
 CMD [ "serve", "-s", "build" ]
